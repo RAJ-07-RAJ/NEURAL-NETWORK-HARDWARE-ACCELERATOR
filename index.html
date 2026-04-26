@@ -1,0 +1,264 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+.root{padding:14px 0;font-family:var(--font-sans,sans-serif);}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+.flow-wrap{display:flex;flex-direction:column;gap:0;}
+.stage{display:flex;align-items:stretch;gap:0;margin-bottom:2px;}
+.stage-label{width:110px;flex-shrink:0;display:flex;align-items:center;justify-content:flex-end;padding-right:12px;font-size:11px;font-weight:500;color:var(--color-text-secondary);text-align:right;}
+.stage-blocks{display:flex;gap:6px;flex:1;align-items:center;flex-wrap:wrap;}
+.block{border-radius:8px;padding:9px 12px;font-size:12px;font-weight:500;min-width:110px;text-align:center;cursor:pointer;transition:opacity .15s;border:0.5px solid transparent;}
+.block:hover{opacity:0.82;}
+.block .sub{font-size:10px;font-weight:400;margin-top:2px;opacity:0.8;}
+.arrow-row{display:flex;align-items:center;padding-left:122px;margin:1px 0;}
+.arrow-line{width:2px;height:16px;background:var(--color-border-secondary);margin-left:20px;}
+.arrow-tip{font-size:10px;color:var(--color-text-tertiary);margin-left:14px;}
+.detail-panel{margin-top:16px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:12px;padding:14px 16px;min-height:80px;}
+.detail-panel h3{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:6px;}
+.detail-panel p{font-size:12px;color:var(--color-text-secondary);line-height:1.7;}
+.detail-panel .io{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;}
+.io-box{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:6px;padding:6px 10px;font-size:11px;}
+.io-box .io-label{color:var(--color-text-secondary);margin-bottom:2px;}
+.io-box .io-val{color:var(--color-text-primary);font-weight:500;}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:11px;color:var(--color-text-secondary);}
+.leg{display:flex;align-items:center;gap:5px;}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+</style>
+
+<div class="root">
+<h2 class="sr-only">NN accelerator system flow — from host CPU to final output, showing all major stages and module roles</h2>
+
+<div class="flow-wrap">
+
+  <div class="stage">
+    <div class="stage-label">Outside chip</div>
+    <div class="stage-blocks">
+      <div class="block" style="background:#FAECE7;color:#712B13;border-color:#D85A30;" onclick="show('host')">
+        Host CPU
+        <div class="sub">sends config + start</div>
+      </div>
+      <div class="block" style="background:#FAECE7;color:#712B13;border-color:#D85A30;" onclick="show('dram')">
+        DRAM
+        <div class="sub">weights + activations</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><div class="arrow-line"></div><span class="arrow-tip">↓ config write + start pulse</span></div>
+
+  <div class="stage">
+    <div class="stage-label">Control</div>
+    <div class="stage-blocks">
+      <div class="block" style="background:#FAEEDA;color:#633806;border-color:#EF9F27;" onclick="show('cfg')">
+        Config registers
+        <div class="sub">stores layer params</div>
+      </div>
+      <div class="block" style="background:#FAEEDA;color:#633806;border-color:#EF9F27;" onclick="show('fsm')">
+        Main FSM
+        <div class="sub">7-state sequencer</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><div class="arrow-line"></div><span class="arrow-tip">↓ FSM triggers DMA to load data</span></div>
+
+  <div class="stage">
+    <div class="stage-label">I/O bridge</div>
+    <div class="stage-blocks">
+      <div class="block" style="background:#FAECE7;color:#712B13;border-color:#D85A30;" onclick="show('dma')">
+        DMA controller
+        <div class="sub">DRAM ↔ on-chip SRAM</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><div class="arrow-line"></div><span class="arrow-tip">↓ burst-fills on-chip SRAMs</span></div>
+
+  <div class="stage">
+    <div class="stage-label">Memory</div>
+    <div class="stage-blocks">
+      <div class="block" style="background:#E1F5EE;color:#085041;border-color:#1D9E75;" onclick="show('wsram')">
+        Weight SRAM
+        <div class="sub">W matrix — stationary</div>
+      </div>
+      <div class="block" style="background:#E1F5EE;color:#085041;border-color:#1D9E75;" onclick="show('asram')">
+        Activation SRAM
+        <div class="sub">ping-pong A/B banks</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><div class="arrow-line"></div><span class="arrow-tip">↓ raw rows/cols to stagger unit</span></div>
+
+  <div class="stage">
+    <div class="stage-label">Timing fix</div>
+    <div class="stage-blocks">
+      <div class="block" style="background:#E6F1FB;color:#0C447C;border-color:#185FA5;" onclick="show('stagger')">
+        Stagger unit
+        <div class="sub">shift-reg delay alignment</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><div class="arrow-line"></div><span class="arrow-tip">↓ perfectly timed a_in / b_in</span></div>
+
+  <div class="stage">
+    <div class="stage-label">Compute core</div>
+    <div class="stage-blocks">
+      <div class="block" style="background:#E6F1FB;color:#0C447C;border-color:#185FA5;" onclick="show('pe')">
+        PE (single unit)
+        <div class="sub">acc += a × b</div>
+      </div>
+      <div class="block" style="background:#E6F1FB;color:#0C447C;border-color:#185FA5;" onclick="show('pearray')">
+        PE array (N×N)
+        <div class="sub">all multiply in parallel</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><div class="arrow-line"></div><span class="arrow-tip">↓ raw dot products (accumulator values)</span></div>
+
+  <div class="stage">
+    <div class="stage-label">Post-compute</div>
+    <div class="stage-blocks">
+      <div class="block" style="background:#E6F1FB;color:#0C447C;border-color:#185FA5;" onclick="show('drain')">
+        Drain unit
+        <div class="sub">reads all N² accumulators</div>
+      </div>
+      <div class="block" style="background:#E6F1FB;color:#0C447C;border-color:#185FA5;" onclick="show('ppu')">
+        PPU
+        <div class="sub">bias + ReLU + quantize</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><div class="arrow-line"></div><span class="arrow-tip">↓ final layer output written to SRAM</span></div>
+
+  <div class="stage">
+    <div class="stage-label">Output</div>
+    <div class="stage-blocks">
+      <div class="block" style="background:#E1F5EE;color:#085041;border-color:#1D9E75;" onclick="show('osram')">
+        Output SRAM
+        <div class="sub">feeds next layer / readback</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="legend">
+  <div class="leg"><div class="leg-dot" style="background:#D85A30"></div>Interface / external</div>
+  <div class="leg"><div class="leg-dot" style="background:#EF9F27"></div>Control</div>
+  <div class="leg"><div class="leg-dot" style="background:#1D9E75"></div>Memory (SRAM)</div>
+  <div class="leg"><div class="leg-dot" style="background:#185FA5"></div>Compute datapath</div>
+</div>
+
+<div class="detail-panel" id="detail">
+  <h3>Click any block above to see what it does</h3>
+  <p>Each block has a single clear job. Click to explore inputs, outputs, and its role in the inference flow.</p>
+</div>
+
+</div>
+
+<script>
+const info = {
+  host: {
+    title: 'Host CPU',
+    body: 'Lives outside the chip. Before inference starts, the CPU writes config values (how many layers, matrix sizes, where data lives in DRAM) into the config registers over a simple bus. Then it sends one start pulse. After inference, it reads the result back from the output SRAM.',
+    inputs: ['Config bus write', 'Start pulse'],
+    outputs: ['done flag from FSM', 'result read from output SRAM']
+  },
+  dram: {
+    title: 'DRAM (off-chip)',
+    body: 'The permanent storage for all weights and input data. Weights are the trained parameters of the neural network — they never change during inference. Activations are the input values (e.g. pixels of an image). Both live here before the chip begins.',
+    inputs: ['Weights stored by training', 'Input activations from sensor/host'],
+    outputs: ['Data read by DMA controller']
+  },
+  cfg: {
+    title: 'Config register file',
+    body: 'A small set of registers (like a settings menu) that the CPU fills before inference. Stores: how many layers, the size N of the matrix, the base address in DRAM where weights live, where activations live, and which activation function (ReLU etc.) to use per layer. The FSM reads these to know what to do.',
+    inputs: ['CPU writes over APB/AXI-Lite bus'],
+    outputs: ['num_layers, N, weight address, activation address, act_mode → to FSM and PPU']
+  },
+  fsm: {
+    title: 'Main sequencer FSM',
+    body: 'The brain. A simple state machine with 7 states: IDLE → LOAD_WEIGHTS → LOAD_ACTIVATIONS → COMPUTE → DRAIN → POST_PROCESS → DONE. It decides when each other module does its job by sending enable signals, reset signals, and handshake pulses. Nothing else starts or stops without the FSM saying so.',
+    inputs: ['start from CPU', 'dma_done', 'drain_done', 'layer config from config regs'],
+    outputs: ['dma_req, pe_rst, drain_en, bank_sel, done — one control signal to each module']
+  },
+  dma: {
+    title: 'DMA controller',
+    body: 'Direct Memory Access — the truck driver. When the FSM says "go load weights", the DMA reads a big burst of data from DRAM and writes it into the weight SRAM on-chip. Then it loads activations into the activation SRAM. The CPU is not involved at all — the DMA does it autonomously and signals the FSM when it is done.',
+    inputs: ['dma_req from FSM', 'source address in DRAM', 'burst length'],
+    outputs: ['weight data → Weight SRAM', 'activation data → Activation SRAM', 'dma_done → FSM']
+  },
+  wsram: {
+    title: 'Weight SRAM',
+    body: 'On-chip fast storage that holds the weight matrix W for the current layer. Loaded once per layer by the DMA. During the compute phase, the stagger unit reads one column at a time from this SRAM — the weights never leave the PE array while computing (weight-stationary dataflow). This is the key reason memory traffic is so low.',
+    inputs: ['Weight data from DMA (write side)'],
+    outputs: ['Weight columns → Stagger unit (read side, one column per cycle)']
+  },
+  asram: {
+    title: 'Activation SRAM (ping-pong)',
+    body: 'Holds the input activations — the data flowing through the network. "Ping-pong" means it has two banks (A and B). While bank A feeds the current layer into the compute core, bank B is quietly being filled by the DMA with the next layer\'s inputs. When the layer finishes, banks swap instantly. This is why you can chain multiple layers with zero idle time between them.',
+    inputs: ['Activation data from DMA into idle bank', 'bank_sel from FSM'],
+    outputs: ['Activation rows → Stagger unit from active bank']
+  },
+  stagger: {
+    title: 'Stagger unit',
+    body: 'The alignment fixer. The PE array needs each value to arrive at exactly the right processing element at exactly the right clock cycle. Without this unit, every PE would get the wrong value. The stagger unit uses shift registers — row 0 gets no delay, row 1 gets 1-cycle delay, row 2 gets 2-cycle delay, and so on. Same for weight columns. After this unit, timing is perfect.',
+    inputs: ['Raw A rows from Activation SRAM (all rows simultaneously)', 'Raw B columns from Weight SRAM'],
+    outputs: ['Perfectly timed a_in[row] → PE array left edge', 'Perfectly timed b_in[col] → PE array top edge']
+  },
+  pe: {
+    title: 'Processing Element (single PE)',
+    body: 'The atom. Does exactly one thing every clock cycle: accumulator = accumulator + (a × b). It also passes a to the PE on its right, and b to the PE below it. That\'s it — 3 operations, 5 lines of RTL. The power comes from having N² of these running at the same time.',
+    inputs: ['a_in: one activation value from the left', 'b_in: one weight value from above'],
+    outputs: ['acc: running dot product sum', 'a_out: passes a to the right', 'b_out: passes b downward']
+  },
+  pearray: {
+    title: 'PE array (N×N grid)',
+    body: 'N² processing elements wired in a grid. Data flows like water — activations flow right across each row, weights flow down each column, and every intersection (PE) accumulates one partial sum. After 2N−1 clock cycles, every PE holds the complete dot product for one output neuron. For N=4: 16 neurons computed in parallel in 7 cycles.',
+    inputs: ['a_in[N]: N activation values entering left edge each cycle', 'b_in[N]: N weight values entering top edge each cycle'],
+    outputs: ['result[N][N]: all N² accumulated dot products simultaneously']
+  },
+  drain: {
+    title: 'Output drain unit',
+    body: 'After compute finishes, the PE array holds N² results simultaneously. The drain unit reads them all out in a serial stream (row by row) and feeds them to the PPU. It also tells the FSM when it is done so the FSM can move to the next state. Simple counter-based sequencer — nothing fancy.',
+    inputs: ['result[N][N] from PE array (all at once)', 'drain_en from FSM'],
+    outputs: ['out_data: one result value per cycle to PPU', 'drain_done: flag to FSM when all N² values sent']
+  },
+  ppu: {
+    title: 'Post-processing unit (PPU)',
+    body: 'Applies the finishing touches to each raw dot product before it becomes a real neural network activation. Three steps in order: (1) Add bias — shifts the value. (2) Apply ReLU — if the value is negative, clamp to zero (max(0, x)). (3) Quantize — truncate from 20-bit accumulator back to 8-bit for the next layer. All three happen combinationally — zero extra clock cycles.',
+    inputs: ['Raw dot product from drain (20-bit signed)', 'Bias value from weight SRAM', 'act_mode from config regs (ReLU / linear / sigmoid)'],
+    outputs: ['8-bit quantized activation → Output SRAM']
+  },
+  osram: {
+    title: 'Output SRAM',
+    body: 'Stores the final processed activations for the current layer. These are the "answers" of this layer and the "questions" for the next layer. Its address space overlaps with the activation SRAM ping-pong banks, so after the FSM swaps bank_sel, the output SRAM automatically becomes the next layer\'s input — no copying needed.',
+    inputs: ['Quantized activations from PPU'],
+    outputs: ['Next layer activations → Activation SRAM (via bank swap)', 'Final result → DMA reads back to DRAM for CPU']
+  }
+};
+
+function show(id) {
+  const d = info[id];
+  if (!d) return;
+  const panel = document.getElementById('detail');
+  panel.innerHTML = `
+    <h3>${d.title}</h3>
+    <p>${d.body}</p>
+    <div class="io">
+      <div class="io-box">
+        <div class="io-label">Inputs</div>
+        ${d.inputs.map(i=>`<div class="io-val">• ${i}</div>`).join('')}
+      </div>
+      <div class="io-box">
+        <div class="io-label">Outputs</div>
+        ${d.outputs.map(o=>`<div class="io-val">• ${o}</div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+</script>
